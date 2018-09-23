@@ -31,9 +31,9 @@ class ShipInstance:
       
       
   def __eq__(self, other):
-    if self.index != other.index:
+    if self.mmsi != other.mmsi:
       return False
-    if self.timeStep != other.timeStep:
+    if self.basetime != other.basetime:
       return False
     return True
     
@@ -57,6 +57,14 @@ class ConflictPair:
   def __str__(self):
     s = 'First Id: ' + str(self.first.mmsi) + '\t Second Id: ' + str(self.second.mmsi)
     return s
+    
+  # TODO May be more complete comparing firsts to seconds as well
+  def __eq__(self, other):
+    if self.first == other.first:
+      return False
+    if self.second == other.second:
+      return False
+    return True
     
 
   
@@ -88,10 +96,13 @@ class BoundingBoxParameters:
     self.maxLongitidue = 90
     self.minTimeSeconds = -1
     self.maxTimeSeconds = -1
-    self.startOffset = list()   # size of dimensions x, y, t
     self.latCount = -1
     self.lonCount = -1
     self.timeCount = -1
+    
+    self.latOffset = 0
+    self.lonOffset = 0
+    self.timeOffset = 0
     
     self._delLat = 1
     self._delLon = 1
@@ -109,11 +120,11 @@ class BoundingBoxParameters:
     seconds = (pd.to_datetime(t)-datetime.datetime(1970,1,1)).total_seconds()
     
     latIndex = math.trunc( \
-      ((float(lat) - self.minLatitude)/(self.maxLatitude-self.minLatitude)) * self.latCount)
+      ((float(lat) - self.minLatitude + self.latOffset)/(self.maxLatitude-self.minLatitude)) * self.latCount)
     lonIndex = math.trunc( \
-      ((float(lon) - self.minLongitude)/(self.maxLongitude-self.minLongitude)) * self.lonCount)         
+      ((float(lon) - self.minLongitude + self.lonOffset)/(self.maxLongitude-self.minLongitude)) * self.lonCount)         
     timeIndex = math.trunc( \
-      ((seconds * self.minTimeSeconds)/(self.maxTimeSeconds-self.minTimeSeconds)) * self.timeCount)
+      ((seconds * self.minTimeSeconds + self.timeOffset)/(self.maxTimeSeconds-self.minTimeSeconds)) * self.timeCount)
     
     # TODO There's a better way to do this
     boxId = \
@@ -183,23 +194,12 @@ def GenerateConflictPairs(boundingBoxParameters, inputFile):
       s.basetime = row['BaseDateTime']
       boundingBoxObject = BoundingBoxObject()
       boundingBoxObject.ship = s
-      #boundingBoxObject.shipId = row['MMSI']
-      #boundingBoxObject.lat = row['LAT']
-      #boundingBoxObject.lon = row['LON']
-      #boundingBoxObject.basetime = row['BaseDateTime']
       boundingBoxObject.boxId = boxId
       m[boxId].append(boundingBoxObject)
-      #print('Box Id: ' + str(boxId) + '\tMMSI: ' + row['MMSI'])
     
     print('Queue Size: ' + str(len(q)))
     
     q.sort()
-    
-    #idx = 0
-    #while idx+1 < len(q):
-    #  while q[idx] != q[idx + 1]:
-    #    del q[idx + 1]
-    #  idx += 1
       
     print('Queue Size After: ' + str(len(q)))
     print('m: ' + str(len(m)))
@@ -213,9 +213,7 @@ def GenerateConflictPairs(boundingBoxParameters, inputFile):
       
       prevBoxId = boxId
       boxShipList = m[boxId]
-      #print('BoxId: ' + str(boxId) + '\tList Size: ' + str(len(boxShipList)))
       if len(boxShipList) <= 1:
-        #print('Skip ' + str(boxId)) 
         continue
       
       # Now, add collision pairs to each other
@@ -227,28 +225,14 @@ def GenerateConflictPairs(boundingBoxParameters, inputFile):
           print('First: ' + str(firstShip.ship.mmsi) + '\tSecond: ' + str(secondShip.ship.mmsi))
           if firstShip.ship.mmsi == secondShip.ship.mmsi:
             continue
-          #print('Pair: ' + str(firstShip) + '\t ' + str(secondShip))
           conflictPair = ConflictPair()
           conflictPair.first = firstShip.ship
           conflictPair.second = secondShip.ship
-          #boxShipList.append(conflictPair)
           finalList.append(conflictPair)
-          
-      #if len(boxShipList) > 1:
-        #for ship in boxShipList:
-          #finalList.append(ship)
-
-  print('Printing ship list: ' + str(len(finalList)))
-  
-  #for collision in finalList:
-  #  print(collision)
           
   print('Completed loading data.')
   
-  return finalList
-  
-#  for row in data:
-    
+  return finalList    
     
     
 def PrintCollisions(outputFile, collisions):
@@ -273,7 +257,7 @@ def PrintCollisions(outputFile, collisions):
     
 
 
-def CreateBoundingBoxParameters(inputFileName, latDivisions, lonDivisions, timeDeltaSeconds):
+def CreateBoundingBoxParameters(inputFileName, latDivisions, lonDivisions, timeDeltaSeconds, offset=False):
   
   bb = BoundingBoxParameters()
   bb.minLongitude =  float('inf')
@@ -288,7 +272,6 @@ def CreateBoundingBoxParameters(inputFileName, latDivisions, lonDivisions, timeD
   with open(inputFileName, 'r') as inputFile:
     csvReader = csv.DictReader(inputFile, delimiter=',')
     for row in csvReader:
-      print(row['LAT'])
       bb.minLatitude = min(float(row['LAT']), bb.minLatitude)
       bb.maxLatitude = max(float(row['LAT']), bb.maxLatitude)
       bb.minLongitude = min(float(row['LON']), bb.minLongitude)
@@ -299,6 +282,15 @@ def CreateBoundingBoxParameters(inputFileName, latDivisions, lonDivisions, timeD
       
     
   bb.timeCount = (bb.maxTimeSeconds - bb.minTimeSeconds) / (timeDeltaSeconds)
+  
+  if offset == True:
+    bb.latOffset = (bb.maxLatitude - bb.minLatitude) / (2.0 * bb.latCount)
+    bb.lonOffset = (bb.maxLongitude - bb.minLongitude) / (2.0 * bb.lonCount)
+    bb.timeOffset = (bb.maxTimeSeconds - bb.minTimeSeconds) / (2.0 * bb.timeCount)
+  else:
+    bb.latOffset = 0
+    bb.lonOffset = 0
+    bb.timeOffset = 0
   
   return bb
 
@@ -321,15 +313,37 @@ def main():
   #bb.lonCount = 20
   #bb.timeCount = (bb.maxTimeSeconds - bb.minTimeSeconds) / (30)
   
-  bb = CreateBoundingBoxParameters(args.inputFile, 20, 20, 30) # 20 chunks, 20 chunks, 30 seconds
+  bb1 = CreateBoundingBoxParameters(args.inputFile, 20, 20, 30, False) # 20 chunks, 20 chunks, 30 seconds
+  bb2 = CreateBoundingBoxParameters(args.inputFile, 20, 20, 30, True)
   
   if args.inputFile is None:
     sys.exit('Error, --inputFile not specified.')
     
   print('Loading: ' + args.inputFile)
   
-  collisions = GenerateConflictPairs(bb, args.inputFile)
-  PrintCollisions(args.outputFile, collisions)
+  collisions1 = GenerateConflictPairs(bb1, args.inputFile)
+  collisions2 = GenerateConflictPairs(bb2, args.inputFile)
+  
+  print('Debug: ')
+  for col in collisions1:
+    print(col)
+    
+  print('Debug: 2')
+  
+  finalList = list()
+  for guy in collisions1:
+    found = False
+    for realGuy in finalList:
+      if realGuy == guy:
+        found = True
+    if not found:
+      finalList.append(guy)
+  
+  for guy in collisions2:
+    if guy not in finalList:
+      finalList.append(guy)
+      
+  PrintCollisions(args.outputFile, finalList)
 
     
     
