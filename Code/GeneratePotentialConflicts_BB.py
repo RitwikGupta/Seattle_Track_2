@@ -336,7 +336,7 @@ def main():
     for realGuy in finalList:
       if realGuy == guy:
         found = True
-    if not found:
+    if found == False:
       finalList.append(guy)
   
   for guy in collisions2:
