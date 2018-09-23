@@ -288,6 +288,7 @@ def CreateBoundingBoxParameters(inputFileName, latDivisions, lonDivisions, timeD
   with open(inputFileName, 'r') as inputFile:
     csvReader = csv.DictReader(inputFile, delimiter=',')
     for row in csvReader:
+      print(row['LAT'])
       bb.minLatitude = min(float(row['LAT']), bb.minLatitude)
       bb.maxLatitude = max(float(row['LAT']), bb.maxLatitude)
       bb.minLongitude = min(float(row['LON']), bb.minLongitude)
