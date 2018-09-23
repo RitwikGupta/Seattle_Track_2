@@ -324,25 +324,40 @@ def main():
   collisions1 = GenerateConflictPairs(bb1, args.inputFile)
   collisions2 = GenerateConflictPairs(bb2, args.inputFile)
   
-  print('Debug: ')
-  for col in collisions1:
-    print(col)
-    
-  print('Debug: 2')
-  
+#  print('Debug: ')
+#  for col in collisions1:
+#    print(col)
+#    
+#  print('Debug: 2')
+#  
   finalList = list()
-  for guy in collisions1:
-    found = False
-    for realGuy in finalList:
-      if realGuy == guy:
-        found = True
-    if found == False:
-      finalList.append(guy)
+#  for guy in collisions1:
+#    found = False
+#    for realGuy in finalList:
+#      if realGuy == guy:
+#        found = True
+#        break
+#    if found == False:
+#      finalList.append(guy)
+#      
+#  print('Debug: 3: ' + str(len(finalList)))
+#  
+#  for guy in collisions2:
+#    if guy not in finalList:
+#      finalList.append(guy)
+
+  for l in collisions1:
+    finalList.append(l)
+  for l in collisions2:
+    duplicate_found = False
+    for r in finalList:
+      if r == l:
+        duplicate_found = True
+    if duplicate_found == False:
+      finalList.append(l)
   
-  for guy in collisions2:
-    if guy not in finalList:
-      finalList.append(guy)
-      
+  
+  
   PrintCollisions(args.outputFile, finalList)
 
     
